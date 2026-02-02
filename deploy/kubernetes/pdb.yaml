@@ -1,0 +1,13 @@
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: ai-navigator
+  namespace: ai-navigator
+  labels:
+    app.kubernetes.io/name: ai-navigator
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: ai-navigator
+      app.kubernetes.io/component: api
