@@ -31,6 +31,35 @@ ruff format src tests
 mypy src
 ```
 
+## Development Principles
+
+### Test-Driven Development
+
+- Write tests first before implementing new functionality
+- Run the relevant test to confirm it fails before writing implementation code
+- Keep tests focused and fast; one assertion per test when practical
+- Use pytest fixtures for shared setup (see `tests/unit/test_capacity.py` for examples)
+- Ensure all tests pass (`pytest`) before committing
+
+### Simplicity and Maintainability
+
+- Prefer the simplest solution that works; avoid premature abstraction
+- Functions should do one thing well; if a function needs a comment explaining what it does, consider renaming it or splitting it
+- Avoid deep nesting; return early to reduce indentation
+- Delete dead code rather than commenting it out
+- Fewer dependencies are better; don't add libraries for trivial operations
+
+### Pythonic Practices
+
+- Follow PEP 8 conventions (enforced via `ruff`)
+- Use type hints consistently; the codebase uses `mypy --strict`
+- Prefer composition over inheritance
+- Use dataclasses or Pydantic models for structured data (this project uses Pydantic)
+- Use context managers (`async with`) for resource management
+- Prefer list/dict/generator comprehensions over manual loops when readable
+- Use `pathlib.Path` over `os.path` for file operations
+- Async functions should be used throughout; avoid blocking calls in async code
+
 ## Architecture
 
 ### Core Flow: 8-Stage Workflow Engine
