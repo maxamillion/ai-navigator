@@ -73,19 +73,19 @@ test-cov: ## Run tests with coverage report
 
 .PHONY: lint
 lint: ## Run ruff linter
-	$(UV) run ruff check src/ operator/ tests/
+	$(UV) run ruff check src/ k8s_operator/ tests/
 
 .PHONY: format
 format: ## Format code with ruff
-	$(UV) run ruff format src/ operator/ tests/
+	$(UV) run ruff format src/ k8s_operator/ tests/
 
 .PHONY: format-check
 format-check: ## Check code formatting without changes
-	$(UV) run ruff format --check src/ operator/ tests/
+	$(UV) run ruff format --check src/ k8s_operator/ tests/
 
 .PHONY: typecheck
 typecheck: ## Run mypy type checker
-	$(UV) run mypy src/ operator/
+	$(UV) run mypy src/ k8s_operator/
 
 .PHONY: check
 check: lint typecheck format-check ## Run all quality checks (lint + typecheck + format-check)
@@ -171,7 +171,7 @@ run-supervisor: ## Run supervisor agent locally
 
 .PHONY: run-operator
 run-operator: ## Run operator locally with kopf
-	$(UV) run kopf run operator/main.py --verbose
+	$(UV) run kopf run k8s_operator/main.py --verbose
 
 # =============================================================================
 # Utility

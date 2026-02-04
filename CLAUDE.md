@@ -20,17 +20,17 @@ pytest tests/unit/ -v
 pytest tests/integration/ -v
 
 # Run linting
-ruff check src/ operator/ tests/
-ruff format src/ operator/ tests/
+ruff check src/ k8s_operator/ tests/
+ruff format src/ k8s_operator/ tests/
 
 # Type checking
-mypy src/ operator/
+mypy src/ k8s_operator/
 
 # Start supervisor locally
 uvicorn ai_navigator.agents.supervisor.agent:app --port 8000
 
 # Run operator locally
-kopf run operator/main.py --verbose
+kopf run k8s_operator/main.py --verbose
 ```
 
 ## Architecture
@@ -62,7 +62,7 @@ User / MCP Client
 - `src/ai_navigator/agents/` - Agent implementations (supervisor, sub-agents)
 - `src/ai_navigator/mcp/` - MCP tool servers
 - `src/ai_navigator/llm/` - LLM integration for decomposition/aggregation
-- `operator/` - Kopf-based Kubernetes operator
+- `k8s_operator/` - Kopf-based Kubernetes operator
 - `manifests/` - Kubernetes manifests (CRDs, deployments, etc.)
 
 ## Development Principles

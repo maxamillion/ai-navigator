@@ -3,7 +3,7 @@
 import kopf
 import structlog
 
-from operator.handlers import (
+from k8s_operator.handlers import (
     agent_create,
     agent_delete,
     agent_update,

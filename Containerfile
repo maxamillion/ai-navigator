@@ -4,7 +4,7 @@
 # Build stage
 FROM registry.access.redhat.com/ubi9/python-311:latest AS builder
 
-WORKDIR /app
+WORKDIR /opt/app-root/src
 
 # Copy dependency files
 COPY pyproject.toml README.md ./
@@ -15,7 +15,7 @@ RUN pip install --no-cache-dir build && \
 
 # Copy source code
 COPY src/ ./src/
-COPY operator/ ./operator/
+COPY k8s_operator/ ./k8s_operator/
 
 # Build wheel
 RUN python -m build --wheel
@@ -29,10 +29,10 @@ LABEL name="ai-navigator" \
       summary="AI Navigator - Kubernetes-native Supervisor/Sub-Agent system" \
       description="Multi-agent system for OpenShift AI capacity planning"
 
-WORKDIR /app
+WORKDIR /opt/app-root/src
 
 # Copy wheel from builder
-COPY --from=builder /app/dist/*.whl ./
+COPY --from=builder /opt/app-root/src/dist/*.whl ./
 
 # Install the package
 RUN pip install --no-cache-dir ./*.whl && \
@@ -40,9 +40,6 @@ RUN pip install --no-cache-dir ./*.whl && \
 
 # Copy manifests for operator
 COPY manifests/ ./manifests/
-
-# Create non-root user
-USER 1001
 
 # Default environment variables
 ENV AGENT_NAME="supervisor" \

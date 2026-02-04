@@ -5,7 +5,7 @@ from typing import Any
 import kopf
 import structlog
 
-from operator.reconciler import AgentReconciler
+from k8s_operator.reconciler import AgentReconciler
 
 logger = structlog.get_logger(__name__)
 

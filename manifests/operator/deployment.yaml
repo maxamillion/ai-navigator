@@ -30,7 +30,8 @@ spec:
           command:
             - kopf
             - run
-            - /app/operator/main.py
+            - -m
+            - k8s_operator.main
             - --verbose
           securityContext:
             allowPrivilegeEscalation: false
