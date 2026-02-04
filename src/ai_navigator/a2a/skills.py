@@ -1,5 +1,7 @@
 """A2A Skill registry and dispatch."""
 
+from __future__ import annotations
+
 from collections.abc import Awaitable, Callable
 from typing import Any
 
@@ -120,25 +122,42 @@ class SkillRegistry:
         id: str,
         name: str,
         description: str,
-        handler: SkillHandler,
+        handler: SkillHandler | None = None,
         tags: list[str] | None = None,
         examples: list[str] | None = None,
         input_schema: dict[str, Any] | None = None,
         output_schema: dict[str, Any] | None = None,
-    ) -> Skill:
-        """Register a skill with its handler."""
-        skill = Skill(
-            id=id,
-            name=name,
-            description=description,
-            tags=tags or [],
-            examples=examples or [],
-            input_schema=input_schema,
-            output_schema=output_schema,
-            handler=handler,
-        )
-        self._skills[id] = skill
-        return skill
+    ) -> Skill | Callable[[SkillHandler], Skill]:
+        """Register a skill with its handler.
+
+        Can be used directly with a handler argument, or as a decorator factory:
+
+            # Direct usage:
+            registry.register("id", "name", "desc", handler=my_handler)
+
+            # Decorator usage:
+            @registry.register(id="id", name="name", description="desc")
+            async def my_handler(input: SkillInput) -> SkillResult:
+                ...
+        """
+
+        def _create_skill(h: SkillHandler) -> Skill:
+            skill = Skill(
+                id=id,
+                name=name,
+                description=description,
+                tags=tags or [],
+                examples=examples or [],
+                input_schema=input_schema,
+                output_schema=output_schema,
+                handler=h,
+            )
+            self._skills[id] = skill
+            return skill
+
+        if handler is not None:
+            return _create_skill(handler)
+        return _create_skill
 
     def get(self, skill_id: str) -> Skill | None:
         """Get a skill by ID."""
