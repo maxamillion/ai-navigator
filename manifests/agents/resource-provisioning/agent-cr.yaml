@@ -1,0 +1,24 @@
+apiVersion: ai-navigator.redhat.com/v1alpha1
+kind: Agent
+metadata:
+  name: resource-provisioning
+  namespace: ai-navigator
+  labels:
+    app.kubernetes.io/part-of: ai-navigator
+    app.kubernetes.io/component: resource-provisioning
+spec:
+  class: resource-provisioning
+  image: quay.io/redhat-et/ai-navigator:latest
+  port: 8000
+  replicas: 1
+  resources:
+    requests:
+      memory: "256Mi"
+      cpu: "250m"
+    limits:
+      memory: "512Mi"
+      cpu: "500m"
+  config:
+    default_namespace: "ai-navigator"
+    default_runtime: "vllm"
+    default_gpu_type: "nvidia.com/gpu"

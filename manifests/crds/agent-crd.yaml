@@ -1,0 +1,142 @@
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: agents.ai-navigator.redhat.com
+  labels:
+    app.kubernetes.io/part-of: ai-navigator
+spec:
+  group: ai-navigator.redhat.com
+  names:
+    kind: Agent
+    listKind: AgentList
+    plural: agents
+    singular: agent
+    shortNames:
+      - ag
+  scope: Namespaced
+  versions:
+    - name: v1alpha1
+      served: true
+      storage: true
+      schema:
+        openAPIV3Schema:
+          type: object
+          required:
+            - spec
+          properties:
+            spec:
+              type: object
+              required:
+                - class
+              properties:
+                class:
+                  type: string
+                  description: Agent class (supervisor, model-catalog, resource-provisioning, deployment-monitor)
+                  enum:
+                    - supervisor
+                    - model-catalog
+                    - resource-provisioning
+                    - deployment-monitor
+                image:
+                  type: string
+                  description: Container image for the agent
+                  default: "quay.io/redhat-et/ai-navigator:latest"
+                port:
+                  type: integer
+                  description: HTTP port for the agent
+                  default: 8000
+                  minimum: 1
+                  maximum: 65535
+                replicas:
+                  type: integer
+                  description: Number of replicas
+                  default: 1
+                  minimum: 0
+                  maximum: 10
+                resources:
+                  type: object
+                  description: Resource requirements
+                  properties:
+                    requests:
+                      type: object
+                      additionalProperties:
+                        type: string
+                    limits:
+                      type: object
+                      additionalProperties:
+                        type: string
+                config:
+                  type: object
+                  description: Agent-specific configuration
+                  x-kubernetes-preserve-unknown-fields: true
+                llm:
+                  type: object
+                  description: LLM configuration
+                  properties:
+                    endpoint:
+                      type: string
+                      description: LLM inference endpoint URL
+                    model:
+                      type: string
+                      description: Model name
+                      default: "granite-4.0-h-tiny"
+                    secretRef:
+                      type: string
+                      description: Secret containing API key
+            status:
+              type: object
+              properties:
+                phase:
+                  type: string
+                  description: Agent phase
+                  enum:
+                    - Pending
+                    - Discovered
+                    - Ready
+                    - Unhealthy
+                    - Failed
+                message:
+                  type: string
+                  description: Status message
+                url:
+                  type: string
+                  description: Agent endpoint URL
+                agentCard:
+                  type: object
+                  description: Agent card from /.well-known/agent.json
+                  x-kubernetes-preserve-unknown-fields: true
+                lastSeen:
+                  type: string
+                  format: date-time
+                  description: Last successful health check
+                conditions:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      type:
+                        type: string
+                      status:
+                        type: string
+                      lastTransitionTime:
+                        type: string
+                        format: date-time
+                      reason:
+                        type: string
+                      message:
+                        type: string
+      subresources:
+        status: {}
+      additionalPrinterColumns:
+        - name: Class
+          type: string
+          jsonPath: .spec.class
+        - name: Phase
+          type: string
+          jsonPath: .status.phase
+        - name: URL
+          type: string
+          jsonPath: .status.url
+        - name: Age
+          type: date
+          jsonPath: .metadata.creationTimestamp

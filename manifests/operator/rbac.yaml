@@ -1,0 +1,148 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: ai-navigator-operator
+  labels:
+    app.kubernetes.io/part-of: ai-navigator
+    app.kubernetes.io/component: operator
+rules:
+  # Agent CRD management
+  - apiGroups:
+      - ai-navigator.redhat.com
+    resources:
+      - agents
+      - agents/status
+    verbs:
+      - get
+      - list
+      - watch
+      - create
+      - update
+      - patch
+      - delete
+
+  # Deployment management
+  - apiGroups:
+      - apps
+    resources:
+      - deployments
+    verbs:
+      - get
+      - list
+      - watch
+      - create
+      - update
+      - patch
+      - delete
+
+  # Service management
+  - apiGroups:
+      - ""
+    resources:
+      - services
+      - configmaps
+      - secrets
+    verbs:
+      - get
+      - list
+      - watch
+      - create
+      - update
+      - patch
+      - delete
+
+  # Pod monitoring
+  - apiGroups:
+      - ""
+    resources:
+      - pods
+      - pods/log
+    verbs:
+      - get
+      - list
+      - watch
+
+  # Events
+  - apiGroups:
+      - ""
+    resources:
+      - events
+    verbs:
+      - create
+      - patch
+
+  # OpenShift Route (optional)
+  - apiGroups:
+      - route.openshift.io
+    resources:
+      - routes
+    verbs:
+      - get
+      - list
+      - watch
+      - create
+      - update
+      - patch
+      - delete
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: ai-navigator-operator
+  labels:
+    app.kubernetes.io/part-of: ai-navigator
+    app.kubernetes.io/component: operator
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: ai-navigator-operator
+subjects:
+  - kind: ServiceAccount
+    name: ai-navigator-operator
+    namespace: ai-navigator
+---
+# Role for agents to access their namespace
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: ai-navigator-agent
+  namespace: ai-navigator
+  labels:
+    app.kubernetes.io/part-of: ai-navigator
+rules:
+  # Read secrets for LLM API keys
+  - apiGroups:
+      - ""
+    resources:
+      - secrets
+      - configmaps
+    verbs:
+      - get
+      - list
+      - watch
+
+  # Read other agents for discovery
+  - apiGroups:
+      - ai-navigator.redhat.com
+    resources:
+      - agents
+    verbs:
+      - get
+      - list
+      - watch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: ai-navigator-agent
+  namespace: ai-navigator
+  labels:
+    app.kubernetes.io/part-of: ai-navigator
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: ai-navigator-agent
+subjects:
+  - kind: ServiceAccount
+    name: ai-navigator
+    namespace: ai-navigator

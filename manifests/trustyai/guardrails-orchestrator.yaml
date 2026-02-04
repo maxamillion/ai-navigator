@@ -1,0 +1,137 @@
+apiVersion: trustyai.opendatahub.io/v1alpha1
+kind: GuardrailsOrchestrator
+metadata:
+  name: ai-navigator-guardrails
+  namespace: ai-navigator
+  labels:
+    app.kubernetes.io/part-of: ai-navigator
+    app.kubernetes.io/component: guardrails
+spec:
+  replicas: 1
+
+  orchestratorConfig:
+    # Enable streaming for real-time detection
+    streamingEnabled: true
+
+    # Health check interval in seconds
+    healthCheckInterval: 30
+
+    # Timeout for detector calls
+    detectorTimeout: 5s
+
+    # Maximum concurrent requests
+    maxConcurrentRequests: 100
+
+  # HAP Detector - Harmful/Abusive/Prejudiced content
+  detectors:
+    - name: hap-detector
+      type: text-classification
+      modelRef:
+        name: granite-guardian-hap
+        namespace: ai-navigator
+      config:
+        threshold: 0.7
+        categories:
+          - hate_speech
+          - harassment
+          - violence
+          - self_harm
+        batchSize: 8
+
+    # PII Detector - Personally Identifiable Information
+    - name: pii-detector
+      type: regex
+      config:
+        patterns:
+          email: "[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}"
+          phone: "\\b\\d{3}[-.]?\\d{3}[-.]?\\d{4}\\b"
+          ssn: "\\b\\d{3}-\\d{2}-\\d{4}\\b"
+          credit_card: "\\b\\d{4}[-\\s]?\\d{4}[-\\s]?\\d{4}[-\\s]?\\d{4}\\b"
+          ip_address: "\\b(?:\\d{1,3}\\.){3}\\d{1,3}\\b"
+        threshold: 0.8
+
+    # Prompt Injection Detector
+    - name: prompt-injection-detector
+      type: pattern-matching
+      config:
+        patterns:
+          - "ignore previous instructions"
+          - "disregard all prior"
+          - "forget everything"
+          - "you are now"
+          - "act as if you are"
+          - "pretend you are"
+          - "new instructions:"
+          - "system prompt:"
+        caseSensitive: false
+        threshold: 0.6
+
+  # Actions to take when detection occurs
+  actions:
+    - name: block-harmful
+      trigger:
+        detector: hap-detector
+        threshold: 0.8
+      action:
+        type: block
+        response: "Content blocked due to harmful content policy violation."
+
+    - name: redact-pii
+      trigger:
+        detector: pii-detector
+        threshold: 0.8
+      action:
+        type: redact
+        replacement: "[REDACTED]"
+
+    - name: block-injection
+      trigger:
+        detector: prompt-injection-detector
+        threshold: 0.7
+      action:
+        type: block
+        response: "Request blocked due to potential prompt injection."
+
+    - name: log-all-detections
+      trigger:
+        any: true
+      action:
+        type: log
+        level: warning
+        includeContent: false
+
+  # Resource configuration
+  resources:
+    requests:
+      memory: "512Mi"
+      cpu: "500m"
+    limits:
+      memory: "1Gi"
+      cpu: "1000m"
+---
+# HAP Detector Model InferenceService
+apiVersion: serving.kserve.io/v1beta1
+kind: InferenceService
+metadata:
+  name: granite-guardian-hap
+  namespace: ai-navigator
+  labels:
+    app.kubernetes.io/part-of: ai-navigator
+    app.kubernetes.io/component: guardrails
+  annotations:
+    serving.kserve.io/deploymentMode: RawDeployment
+spec:
+  predictor:
+    minReplicas: 1
+    maxReplicas: 2
+    model:
+      modelFormat:
+        name: pytorch
+      storageUri: s3://models/ibm-granite/granite-guardian-hap-38m
+      resources:
+        requests:
+          memory: "512Mi"
+          cpu: "500m"
+        limits:
+          memory: "1Gi"
+          cpu: "1000m"

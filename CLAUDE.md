@@ -1,125 +1,89 @@
-# CLAUDE.md
-
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+# AI Navigator - Claude Code Guidelines
 
 ## Project Overview
 
-AI Navigator is an AI-powered agent for OpenShift AI capacity planning and deployment. It provides conversational workflow guidance for deploying ML models on OpenShift AI, with SLO-driven capacity planning, benchmark integration, and Kubernetes manifest generation.
+AI Navigator is a Kubernetes-native Supervisor/Sub-Agent system for OpenShift AI capacity planning. It uses:
+- **A2A Protocol** for agent-to-agent communication
+- **MCP Protocol** for agent-to-tool access
+- **Agent CRD & Operator** (Kopf-based) for lifecycle management
+- **KServe RawDeployment** for Granite-4.0-H-Tiny (7B) model serving
+- **TrustyAI GuardrailsOrchestrator** for safety enforcement
 
-## Build and Test Commands
+## Key Commands
 
 ```bash
-# Install dependencies (using uv or pip)
-uv pip install -e ".[dev]"
-# or
+# Install dependencies
 pip install -e ".[dev]"
 
-# Run all tests with coverage
-pytest
+# Run tests
+pytest tests/unit/ -v
+pytest tests/integration/ -v
 
-# Run a single test file
-pytest tests/unit/test_capacity.py
-
-# Run a specific test
-pytest tests/unit/test_capacity.py::TestCapacityPlanner::test_calculate_capacity_plan
-
-# Lint and format
-ruff check src tests
-ruff format src tests
+# Run linting
+ruff check src/ operator/ tests/
+ruff format src/ operator/ tests/
 
 # Type checking
-mypy src
+mypy src/ operator/
+
+# Start supervisor locally
+uvicorn ai_navigator.agents.supervisor.agent:app --port 8000
+
+# Run operator locally
+kopf run operator/main.py --verbose
 ```
-
-## Development Principles
-
-### Test-Driven Development
-
-- Write tests first before implementing new functionality
-- Run the relevant test to confirm it fails before writing implementation code
-- Keep tests focused and fast; one assertion per test when practical
-- Use pytest fixtures for shared setup (see `tests/unit/test_capacity.py` for examples)
-- Ensure all tests pass (`pytest`) before committing
-
-### Simplicity and Maintainability
-
-- Prefer the simplest solution that works; avoid premature abstraction
-- Functions should do one thing well; if a function needs a comment explaining what it does, consider renaming it or splitting it
-- Avoid deep nesting; return early to reduce indentation
-- Delete dead code rather than commenting it out
-- Fewer dependencies are better; don't add libraries for trivial operations
-
-### Pythonic Practices
-
-- Follow PEP 8 conventions (enforced via `ruff`)
-- Use type hints consistently; the codebase uses `mypy --strict`
-- Prefer composition over inheritance
-- Use dataclasses or Pydantic models for structured data (this project uses Pydantic)
-- Use context managers (`async with`) for resource management
-- Prefer list/dict/generator comprehensions over manual loops when readable
-- Use `pathlib.Path` over `os.path` for file operations
-- Async functions should be used throughout; avoid blocking calls in async code
 
 ## Architecture
 
-### Core Flow: 8-Stage Workflow Engine
+```
+User / MCP Client
+        │
+        ▼ A2A
+┌─────────────────────────────────────┐
+│       SUPERVISOR AGENT              │
+│   "RHOAI Deployment Orchestrator"   │
+└──────────────────┬──────────────────┘
+                   │ A2A Task Delegation
+     ┌─────────────┼─────────────┐
+     ▼             ▼             ▼
+┌─────────────┐ ┌─────────────┐ ┌─────────────┐
+│ MODEL       │ │ RESOURCE    │ │ DEPLOYMENT  │
+│ CATALOG     │ │ PROVISIONING│ │ MONITOR     │
+│ SUB-AGENT   │ │ SUB-AGENT   │ │ SUB-AGENT   │
+└──────┬──────┘ └──────┬──────┘ └──────┬──────┘
+       │ MCP           │ MCP           │ MCP
+       ▼               ▼               ▼
+   Tools/APIs      Tools/APIs      Tools/APIs
+```
 
-The system implements an 8-stage conversational workflow in `src/ai_navigator/workflow/`:
+## Directory Structure
 
-1. **INTENT** - Extract requirements from natural language
-2. **TRAFFIC** - Determine traffic patterns (steady, burst, growth)
-3. **SLO** - Set latency targets (p50, p95, p99)
-4. **BENCHMARK** - Query model performance data from registry
-5. **FILTER** - Select models meeting requirements
-6. **REPLICAS** - Calculate GPU resources and replicas
-7. **DEPLOY** - Generate Kubernetes manifests
-8. **MONITOR** - Verify deployment and test endpoints
+- `src/ai_navigator/a2a/` - A2A Protocol core (BaseAgent, messages, tasks)
+- `src/ai_navigator/agents/` - Agent implementations (supervisor, sub-agents)
+- `src/ai_navigator/mcp/` - MCP tool servers
+- `src/ai_navigator/llm/` - LLM integration for decomposition/aggregation
+- `operator/` - Kopf-based Kubernetes operator
+- `manifests/` - Kubernetes manifests (CRDs, deployments, etc.)
 
-The `WorkflowEngine` (`workflow/engine.py`) orchestrates stage transitions. Each stage has its own handler in `workflow/stages/`. State is managed via `StateManager` with pluggable backends (memory or postgres).
+## Development Principles
 
-### Key Subsystems
+1. **A2A Protocol Compliance**: All agents must expose `/.well-known/agent.json`
+2. **Skill-Based Design**: Each agent capability is a discrete skill
+3. **Kubernetes-Native**: Use CRDs for agent lifecycle management
+4. **Observability**: Every agent exposes `/healthz` and `/metrics`
+5. **Type Safety**: Use Pydantic models for all data structures
 
-**MCP Integration** (`src/ai_navigator/mcp/`):
-- `MCPClient` connects to rhoai-mcp server for OpenShift AI operations
-- `MCPOrchestrator` handles multi-tool calls with dependency management (parallel, sequential, DAG execution)
+## Hardware Target
 
-**Model Registry** (`src/ai_navigator/registry/`):
-- REST client for OpenShift AI Model Registry v1alpha3 API
-- Fetches model metadata, versions, artifacts, and benchmark data
+- GPU: NVIDIA T4 (16GB VRAM)
+- Model: granite-4.0-h-tiny (7B parameters)
+- Precision: float16 (T4 Turing architecture)
+- Max Context: ~16K tokens
 
-**Capacity Planning** (`src/ai_navigator/planning/`):
-- `CapacityPlanner` calculates replicas, GPU requirements, and costs from SLO requirements and benchmarks
-- `WhatIfAnalyzer` enables scenario analysis (traffic growth, GPU changes, SLO tightening)
-- GPU catalog with specs for T4, L4, A10, A100, H100
+## Key Dependencies
 
-**Deployment** (`src/ai_navigator/deployment/`):
-- YAML generator for InferenceService manifests
-- Validation and orchestration for Kubernetes deployments
-
-**Quickstarts** (`src/ai_navigator/quickstarts/`):
-- Interactive task engine for guided tutorials (deploy model, setup project, test inference)
-
-### API Layer
-
-FastAPI router in `src/ai_navigator/router.py` exposes:
-- `/ai-navigator/workflow/*` - Conversational workflow endpoints
-- `/ai-navigator/capacity/*` - Capacity estimation and what-if analysis
-- `/ai-navigator/deploy/*` - Deployment preview and execution
-- `/ai-navigator/quickstarts` - Guided tutorials
-
-### Configuration
-
-Settings via pydantic-settings with environment variables:
-- `AI_NAVIGATOR_*` - Main app settings
-- `RHOAI_MCP_*` - MCP server connection
-- `MODEL_REGISTRY_*` - Model Registry URL
-- `LLM_*` - LLM provider for conversation (OpenAI-compatible)
-- `STATE_*` - State backend (memory/postgres)
-
-### Key Models
-
-- `WorkflowState` - Complete session state including stage, traffic profile, SLO requirements
-- `TrafficProfile` - RPS, burst patterns, token counts
-- `SLORequirements` - Latency percentiles, availability targets
-- `CapacityPlan` - Calculated replicas, GPU allocation, cost estimates
-- `BenchmarkData` - Model performance metrics from registry
+- `a2a-sdk>=0.3.22` - A2A Protocol SDK
+- `fastapi>=0.115.0` - Web framework
+- `kopf>=1.38.0` - Kubernetes operator framework
+- `mcp>=1.6.0` - Model Context Protocol
+- `pydantic>=2.10.0` - Data validation

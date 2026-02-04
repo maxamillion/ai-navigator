@@ -1,0 +1,23 @@
+apiVersion: ai-navigator.redhat.com/v1alpha1
+kind: Agent
+metadata:
+  name: model-catalog
+  namespace: ai-navigator
+  labels:
+    app.kubernetes.io/part-of: ai-navigator
+    app.kubernetes.io/component: model-catalog
+spec:
+  class: model-catalog
+  image: quay.io/redhat-et/ai-navigator:latest
+  port: 8000
+  replicas: 1
+  resources:
+    requests:
+      memory: "256Mi"
+      cpu: "250m"
+    limits:
+      memory: "512Mi"
+      cpu: "500m"
+  config:
+    model_registry_url: "http://model-registry.redhat-ods-applications.svc.cluster.local:8080"
+    trustyai_url: "http://trustyai-service.redhat-ods-applications.svc.cluster.local:8080"

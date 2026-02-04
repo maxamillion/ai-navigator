@@ -1,0 +1,23 @@
+apiVersion: ai-navigator.redhat.com/v1alpha1
+kind: Agent
+metadata:
+  name: deployment-monitor
+  namespace: ai-navigator
+  labels:
+    app.kubernetes.io/part-of: ai-navigator
+    app.kubernetes.io/component: deployment-monitor
+spec:
+  class: deployment-monitor
+  image: quay.io/redhat-et/ai-navigator:latest
+  port: 8000
+  replicas: 1
+  resources:
+    requests:
+      memory: "256Mi"
+      cpu: "250m"
+    limits:
+      memory: "512Mi"
+      cpu: "500m"
+  config:
+    prometheus_url: "http://prometheus-k8s.openshift-monitoring.svc.cluster.local:9090"
+    default_namespace: "ai-navigator"

@@ -1,0 +1,70 @@
+apiVersion: serving.kserve.io/v1alpha1
+kind: ServingRuntime
+metadata:
+  name: vllm-runtime
+  namespace: ai-navigator
+  labels:
+    app.kubernetes.io/part-of: ai-navigator
+    app.kubernetes.io/component: serving
+spec:
+  annotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "8080"
+    prometheus.io/path: /metrics
+  supportedModelFormats:
+    - name: vllm
+      autoSelect: true
+  multiModel: false
+  containers:
+    - name: kserve-container
+      image: quay.io/opendatahub/vllm:stable
+      args:
+        - --model=/mnt/models
+        - --dtype=float16
+        - --max-model-len=16384
+        - --tensor-parallel-size=1
+        - --gpu-memory-utilization=0.90
+        - --port=8080
+      ports:
+        - containerPort: 8080
+          protocol: TCP
+      env:
+        - name: HF_HUB_OFFLINE
+          value: "1"
+      resources:
+        requests:
+          memory: "16Gi"
+          cpu: "4"
+          nvidia.com/gpu: "1"
+        limits:
+          memory: "16Gi"
+          cpu: "8"
+          nvidia.com/gpu: "1"
+      livenessProbe:
+        httpGet:
+          path: /health
+          port: 8080
+        initialDelaySeconds: 120
+        periodSeconds: 30
+        failureThreshold: 3
+      readinessProbe:
+        httpGet:
+          path: /health
+          port: 8080
+        initialDelaySeconds: 60
+        periodSeconds: 10
+        failureThreshold: 3
+      volumeMounts:
+        - name: shm
+          mountPath: /dev/shm
+  volumes:
+    - name: shm
+      emptyDir:
+        medium: Memory
+        sizeLimit: 2Gi
+  tolerations:
+    - key: nvidia.com/gpu
+      operator: Exists
+      effect: NoSchedule
+  nodeSelector:
+    nvidia.com/gpu.product: Tesla-T4

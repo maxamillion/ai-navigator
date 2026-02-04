@@ -1,7 +1,0 @@
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: ai-navigator
-  labels:
-    app.kubernetes.io/name: ai-navigator
-    app.kubernetes.io/part-of: openshift-lightspeed

@@ -1,110 +1,153 @@
 """Configuration management for AI Navigator."""
 
-from enum import Enum
-from typing import Optional
+from functools import lru_cache
 
-from pydantic import Field, SecretStr
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
-class Environment(str, Enum):
-    """Deployment environment."""
+class AgentSettings(BaseSettings):
+    """Configuration for an individual agent."""
 
-    DEVELOPMENT = "development"
-    STAGING = "staging"
-    PRODUCTION = "production"
-
-
-class MCPTransport(str, Enum):
-    """MCP transport protocol."""
-
-    SSE = "sse"
-    STDIO = "stdio"
-
-
-class StateBackend(str, Enum):
-    """State storage backend."""
-
-    MEMORY = "memory"
-    POSTGRES = "postgres"
-
-
-class MCPSettings(BaseSettings):
-    """MCP client configuration."""
-
-    model_config = SettingsConfigDict(env_prefix="RHOAI_MCP_")
-
-    host: str = Field(default="localhost", description="MCP server host")
-    port: int = Field(default=8080, description="MCP server port")
-    transport: MCPTransport = Field(default=MCPTransport.SSE, description="Transport protocol")
-    timeout_seconds: int = Field(default=30, description="Request timeout")
-    max_retries: int = Field(default=3, description="Maximum retry attempts")
-    retry_delay_seconds: float = Field(default=1.0, description="Delay between retries")
-
-
-class ModelRegistrySettings(BaseSettings):
-    """Model Registry client configuration."""
-
-    model_config = SettingsConfigDict(env_prefix="MODEL_REGISTRY_")
-
-    url: str = Field(
-        default="http://model-registry.odh-model-registries.svc:8080",
-        description="Model Registry service URL",
+    model_config = SettingsConfigDict(
+        env_prefix="AGENT_",
+        env_file=".env",
+        extra="ignore",
     )
-    timeout_seconds: int = Field(default=30, description="Request timeout")
-    cache_ttl_seconds: int = Field(default=300, description="Cache TTL for registry queries")
+
+    # Agent identity
+    name: str = Field(default="supervisor", description="Agent identifier")
+    version: str = Field(default="0.1.0", description="Agent version")
+    description: str = Field(
+        default="AI Navigator Agent",
+        description="Human-readable description",
+    )
+
+    # Network configuration
+    host: str = Field(default="0.0.0.0", description="Bind address")
+    port: int = Field(default=8000, description="HTTP port")
+    base_path: str = Field(default="", description="Base URL path prefix")
+
+    # Agent discovery
+    supervisor_url: str | None = Field(
+        default=None,
+        description="URL of supervisor agent (for sub-agents)",
+    )
+    discovery_mode: str = Field(
+        default="kubernetes",
+        description="Agent discovery mode: kubernetes, static, or hybrid",
+    )
+
+    @property
+    def endpoint(self) -> str:
+        """Return the agent's endpoint URL."""
+        return f"http://{self.host}:{self.port}{self.base_path}"
 
 
 class LLMSettings(BaseSettings):
-    """LLM provider configuration."""
+    """Configuration for LLM integration."""
 
-    model_config = SettingsConfigDict(env_prefix="LLM_")
-
-    provider: str = Field(default="openai", description="LLM provider (openai-compatible)")
-    base_url: str = Field(
-        default="http://vllm.redhat-ods-applications.svc:8000/v1",
-        description="LLM API base URL",
+    model_config = SettingsConfigDict(
+        env_prefix="LLM_",
+        env_file=".env",
+        extra="ignore",
     )
-    api_key: SecretStr = Field(default=SecretStr(""), description="API key if required")
-    model_name: str = Field(default="granite-3b-code-instruct", description="Model to use")
-    temperature: float = Field(default=0.1, description="Sampling temperature")
-    max_tokens: int = Field(default=2048, description="Maximum tokens in response")
+
+    endpoint: str = Field(
+        default="http://localhost:8080/v1",
+        description="LLM inference endpoint (OpenAI-compatible)",
+    )
+    model: str = Field(
+        default="granite-4.0-h-tiny",
+        description="Model name for inference",
+    )
+    api_key: str | None = Field(
+        default=None,
+        description="API key for authentication",
+    )
+    max_tokens: int = Field(
+        default=4096,
+        description="Maximum tokens in response",
+    )
+    temperature: float = Field(
+        default=0.1,
+        description="Sampling temperature",
+    )
+    timeout: float = Field(
+        default=120.0,
+        description="Request timeout in seconds",
+    )
 
 
-class StateSettings(BaseSettings):
-    """State storage configuration."""
+class KubernetesSettings(BaseSettings):
+    """Configuration for Kubernetes integration."""
 
-    model_config = SettingsConfigDict(env_prefix="STATE_")
+    model_config = SettingsConfigDict(
+        env_prefix="KUBERNETES_",
+        env_file=".env",
+        extra="ignore",
+    )
 
-    backend: StateBackend = Field(default=StateBackend.MEMORY, description="Storage backend")
-    postgres_dsn: Optional[str] = Field(default=None, description="PostgreSQL connection string")
-    ttl_hours: int = Field(default=24, description="State TTL in hours")
+    namespace: str = Field(
+        default="ai-navigator",
+        description="Kubernetes namespace for agents",
+    )
+    in_cluster: bool = Field(
+        default=True,
+        description="Whether running inside a cluster",
+    )
+    kubeconfig: str | None = Field(
+        default=None,
+        description="Path to kubeconfig file (for out-of-cluster)",
+    )
+    agent_label_selector: str = Field(
+        default="app.kubernetes.io/part-of=ai-navigator",
+        description="Label selector for discovering agents",
+    )
+
+
+class MCPSettings(BaseSettings):
+    """Configuration for MCP tool servers."""
+
+    model_config = SettingsConfigDict(
+        env_prefix="MCP_",
+        env_file=".env",
+        extra="ignore",
+    )
+
+    model_registry_url: str = Field(
+        default="http://model-registry:8080",
+        description="OpenShift Model Registry endpoint",
+    )
+    prometheus_url: str = Field(
+        default="http://prometheus:9090",
+        description="Prometheus endpoint",
+    )
+    trustyai_url: str = Field(
+        default="http://trustyai-service:8080",
+        description="TrustyAI service endpoint",
+    )
 
 
 class Settings(BaseSettings):
-    """Main application settings."""
+    """Root configuration container."""
 
     model_config = SettingsConfigDict(
-        env_prefix="AI_NAVIGATOR_",
-        env_nested_delimiter="__",
+        env_file=".env",
+        extra="ignore",
     )
 
-    enabled: bool = Field(default=True, description="Enable AI Navigator plugin")
-    environment: Environment = Field(default=Environment.DEVELOPMENT, description="Environment")
-    debug: bool = Field(default=False, description="Enable debug mode")
-    log_level: str = Field(default="INFO", description="Logging level")
-
-    mcp: MCPSettings = Field(default_factory=MCPSettings)
-    model_registry: ModelRegistrySettings = Field(default_factory=ModelRegistrySettings)
+    agent: AgentSettings = Field(default_factory=AgentSettings)
     llm: LLMSettings = Field(default_factory=LLMSettings)
-    state: StateSettings = Field(default_factory=StateSettings)
+    kubernetes: KubernetesSettings = Field(default_factory=KubernetesSettings)
+    mcp: MCPSettings = Field(default_factory=MCPSettings)
 
-    @property
-    def is_production(self) -> bool:
-        """Check if running in production."""
-        return self.environment == Environment.PRODUCTION
+    # Logging
+    log_level: str = Field(default="INFO", description="Log level")
+    log_format: str = Field(default="json", description="Log format: json or console")
 
 
+@lru_cache
 def get_settings() -> Settings:
-    """Get application settings singleton."""
+    """Get cached settings instance."""
     return Settings()

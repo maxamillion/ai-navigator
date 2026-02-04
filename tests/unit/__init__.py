@@ -1,1 +1,1 @@
-"""Unit tests for AI Navigator components."""
+"""Unit tests for AI Navigator."""

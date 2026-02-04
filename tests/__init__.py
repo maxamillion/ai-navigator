@@ -1,1 +1,1 @@
-"""Tests for AI Navigator."""
+"""AI Navigator test suite."""

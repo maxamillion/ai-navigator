@@ -1,55 +1,60 @@
 # AI Navigator Container Image
-# Multi-stage build for optimized production image
+# Multi-stage build for minimal runtime image
 
 # Build stage
 FROM registry.access.redhat.com/ubi9/python-311:latest AS builder
 
 WORKDIR /app
 
-# Install uv for fast dependency management
-RUN pip install --no-cache-dir uv
-
 # Copy dependency files
-COPY pyproject.toml ./
+COPY pyproject.toml README.md ./
 
-# Create virtual environment and install dependencies
-RUN uv venv /app/.venv && \
-    . /app/.venv/bin/activate && \
-    uv pip install --no-cache .
+# Install build dependencies and package
+RUN pip install --no-cache-dir build && \
+    pip install --no-cache-dir .
 
 # Copy source code
-COPY src/ src/
+COPY src/ ./src/
+COPY operator/ ./operator/
 
-# Install the package
-RUN . /app/.venv/bin/activate && \
-    uv pip install --no-cache .
+# Build wheel
+RUN python -m build --wheel
 
-# Production stage
+# Runtime stage
 FROM registry.access.redhat.com/ubi9/python-311:latest
+
+LABEL name="ai-navigator" \
+      vendor="Red Hat" \
+      version="0.1.0" \
+      summary="AI Navigator - Kubernetes-native Supervisor/Sub-Agent system" \
+      description="Multi-agent system for OpenShift AI capacity planning"
 
 WORKDIR /app
 
-# Copy virtual environment from builder
-COPY --from=builder /app/.venv /app/.venv
+# Copy wheel from builder
+COPY --from=builder /app/dist/*.whl ./
 
-# Copy source code
-COPY --from=builder /app/src /app/src
+# Install the package
+RUN pip install --no-cache-dir ./*.whl && \
+    rm -f ./*.whl
 
-# Set environment variables
-ENV PATH="/app/.venv/bin:$PATH"
-ENV PYTHONPATH="/app/src"
-ENV PYTHONDONTWRITEBYTECODE=1
-ENV PYTHONUNBUFFERED=1
+# Copy manifests for operator
+COPY manifests/ ./manifests/
 
 # Create non-root user
 USER 1001
 
+# Default environment variables
+ENV AGENT_NAME="supervisor" \
+    AGENT_PORT="8000" \
+    PYTHONUNBUFFERED="1"
+
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD python -c "import httpx; httpx.get('http://localhost:8080/ai-navigator/health')" || exit 1
+    CMD curl -f http://localhost:${AGENT_PORT}/healthz || exit 1
 
-# Default port
-EXPOSE 8080
+# Expose port
+EXPOSE 8000
 
-# Entry point
-CMD ["uvicorn", "ai_navigator.router:router", "--host", "0.0.0.0", "--port", "8080"]
+# Default command - run supervisor agent
+CMD ["uvicorn", "ai_navigator.agents.supervisor.agent:app", "--host", "0.0.0.0", "--port", "8000"]
