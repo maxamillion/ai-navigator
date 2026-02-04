@@ -26,7 +26,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: operator
-          image: quay.io/redhat-et/ai-navigator:latest
+          image: quay.io/admiller/ai-navigator:latest
           command:
             - kopf
             - run

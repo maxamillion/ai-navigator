@@ -6,7 +6,7 @@
 # =============================================================================
 
 # Container registry settings
-IMAGE_REGISTRY ?= quay.io/redhat-et
+IMAGE_REGISTRY ?= quay.io/admiller
 IMAGE_NAME ?= ai-navigator
 IMAGE_TAG ?= latest
 FULL_IMAGE := $(IMAGE_REGISTRY)/$(IMAGE_NAME):$(IMAGE_TAG)

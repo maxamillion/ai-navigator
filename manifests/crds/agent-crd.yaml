@@ -40,7 +40,7 @@ spec:
                 image:
                   type: string
                   description: Container image for the agent
-                  default: "quay.io/redhat-et/ai-navigator:latest"
+                  default: "quay.io/admiller/ai-navigator:latest"
                 port:
                   type: integer
                   description: HTTP port for the agent

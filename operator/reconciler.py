@@ -287,7 +287,7 @@ class AgentReconciler:
     ) -> dict[str, Any]:
         """Build Kubernetes Deployment manifest."""
         agent_class = spec.get("class", "supervisor")
-        image = spec.get("image", "quay.io/redhat-et/ai-navigator:latest")
+        image = spec.get("image", "quay.io/admiller/ai-navigator:latest")
         port = spec.get("port", 8000)
         replicas = spec.get("replicas", 1)
         resources = spec.get("resources", {})

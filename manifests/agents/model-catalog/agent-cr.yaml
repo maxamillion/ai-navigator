@@ -8,7 +8,7 @@ metadata:
     app.kubernetes.io/component: model-catalog
 spec:
   class: model-catalog
-  image: quay.io/redhat-et/ai-navigator:latest
+  image: quay.io/admiller/ai-navigator:latest
   port: 8000
   replicas: 1
   resources:
