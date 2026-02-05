@@ -33,6 +33,7 @@ spec:
             - -m
             - k8s_operator.main
             - --verbose
+            - --liveness=http://0.0.0.0:8080/healthz
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true
